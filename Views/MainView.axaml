@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:AutoCADLayerManager.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="600"
+        x:Class="AutoCADLayerManager.Views.MainView"
+        x:DataType="vm:MainViewModel"
+        Title="Диспетчер слоев (Avalonia)"
+        Width="450" Height="600"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:MainViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto, *, Auto" Margin="10">
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+            <Button Content="Создать" Command="{Binding CreateLayerCommand}" DockPanel.Dock="Right" VerticalAlignment="Center" Padding="20, 5"/>
+            <TextBox Text="{Binding NewLayerName}" Watermark="Имя нового слоя" VerticalAlignment="Center"/>
+        </DockPanel>
+
+        <ListBox Grid.Row="1" ItemsSource="{Binding Layers}" SelectedItem="{Binding SelectedLayer}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="*, Auto, Auto" Margin="5" MinWidth="300">
+                        <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" FontWeight="Bold"/>
+                        
+                        <CheckBox Grid.Column="1" IsChecked="{Binding IsOff}" ToolTip.Tip="Включить/Выключить" Margin="10,0"/>
+
+                        <Border Grid.Column="2" Width="20" Height="20" BorderThickness="1" BorderBrush="Gray" CornerRadius="10">
+                            <Border.Background>
+                                <SolidColorBrush Color="{Binding Color}"/>
+                            </Border.Background>
+                            </Border>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Удалить выбранный" 
+                    Command="{Binding DeleteLayerCommand}" 
+                    Padding="15,5"
+                    IsEnabled="{Binding $self.Command.CanExecute}"/>
+        </StackPanel>
+        
+    </Grid>
+</Window>
