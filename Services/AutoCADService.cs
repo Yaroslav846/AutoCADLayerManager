@@ -158,9 +158,32 @@ namespace AutoCADLayerManager.Services
             {
                 var doc = Application.DocumentManager.MdiActiveDocument;
                 if (doc == null) return;
+                var db = doc.Database;
+                var ed = doc.Editor;
+
                 using (doc.LockDocument())
                 {
-                    // ... (здесь вся логика из предыдущей версии метода)
+                    using (var tr = db.TransactionManager.StartTransaction())
+                    {
+                        var lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForWrite);
+                        if (!lt.Has(layerName))
+                        {
+                            var ltr = new LayerTableRecord
+                            {
+                                Name = layerName,
+                                Color = color
+                            };
+                            lt.Add(ltr);
+                            tr.AddNewlyCreatedDBObject(ltr, true);
+                            tr.Commit();
+                            ed.WriteMessage($"\nСлой '{layerName}' успешно создан.");
+                        }
+                        else
+                        {
+                            ed.WriteMessage($"\nСлой с именем '{layerName}' уже существует.");
+                            tr.Abort();
+                        }
+                    }
                 }
             });
         }
@@ -171,9 +194,55 @@ namespace AutoCADLayerManager.Services
             {
                 var doc = Application.DocumentManager.MdiActiveDocument;
                 if (doc == null) return;
+                var db = doc.Database;
+                var ed = doc.Editor;
+
                 using (doc.LockDocument())
                 {
-                    // ... (здесь вся логика из предыдущей версии метода)
+                    using (var tr = db.TransactionManager.StartTransaction())
+                    {
+                        // Проверка, является ли слой текущим или слоем "0"
+                        var cl = (LayerTableRecord)tr.GetObject(db.Clayer, OpenMode.ForRead);
+                        if (layerName.Equals("0", StringComparison.OrdinalIgnoreCase) || layerName.Equals(cl.Name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            ed.WriteMessage($"\nНельзя удалить активный слой или слой '0'.");
+                            tr.Abort();
+                            return;
+                        }
+
+                        var lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
+                        if (lt.Has(layerName))
+                        {
+                            var layerId = lt[layerName];
+
+                            // Проверка, содержит ли слой объекты
+                            var filter = new SelectionFilter(new[] { new TypedValue((int)DxfCode.LayerName, layerName) });
+                            var selectionResult = ed.SelectAll(filter);
+                            if (selectionResult.Status == PromptStatus.OK && selectionResult.Value.Count > 0)
+                            {
+                                ed.WriteMessage($"\nНельзя удалить слой '{layerName}', так как он содержит объекты.");
+                                tr.Abort();
+                                return;
+                            }
+
+                            try
+                            {
+                                var ltr = (LayerTableRecord)tr.GetObject(layerId, OpenMode.ForWrite);
+                                ltr.Erase();
+                                tr.Commit();
+                                ed.WriteMessage($"\nСлой '{layerName}' удален.");
+                            }
+                            catch (System.Exception ex)
+                            {
+                                ed.WriteMessage($"\nНе удалось удалить слой '{layerName}': {ex.Message}");
+                                tr.Abort();
+                            }
+                        }
+                        else
+                        {
+                            tr.Abort();
+                        }
+                    }
                 }
             });
         }
