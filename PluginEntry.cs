@@ -2,12 +2,14 @@
 // File: PluginEntry.cs
 // Description: Точка входа плагина, регистрация команды AutoCAD и запуск UI.
 // =================================================================================
+using Autodesk.AutoCAD.Runtime;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Themes.Fluent;
 using AutoCADLayerManager.Services;
 using AutoCADLayerManager.ViewModels;
 using AutoCADLayerManager.Views;
-using Autodesk.AutoCAD.Runtime;
-using Avalonia;
-using Avalonia.Controls;
+using System;
 using System.Threading;
 
 // Регистрация сборки для AutoCAD и определение класса с командами
@@ -16,88 +18,89 @@ using System.Threading;
 
 namespace AutoCADLayerManager
 {
+    // Класс App теперь отвечает только за инициализацию темы и создание окна
+    class App : Application
+    {
+        public override void OnFrameworkInitializationCompleted()
+        {
+            this.Styles.Add(new FluentTheme());
+
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                // Сохраняем ссылку на жизненный цикл приложения для дальнейшего использования
+                PluginEntry.SetLifetime(desktop);
+
+                var service = new AutoCADService();
+                var viewModel = new MainViewModel(service);
+
+                desktop.MainWindow = new MainView
+                {
+                    DataContext = viewModel
+                };
+            }
+
+            base.OnFrameworkInitializationCompleted();
+        }
+    }
+
     public class PluginEntry : IExtensionApplication
     {
-        private static MainView _mainWindow;
+        private static IClassicDesktopStyleApplicationLifetime _appLifetime;
         private static Thread _avaloniaThread;
 
-        // Метод, вызываемый при загрузке плагина в AutoCAD
-        public void Initialize()
-        {
-            // Здесь можно добавить логику инициализации, если она потребуется
-        }
+        // Вызывается при загрузке DLL в AutoCAD
+        public void Initialize() { }
 
-        // Метод, вызываемый при выгрузке плагина из AutoCAD
+        // Вызывается при выгрузке DLL из AutoCAD. Здесь мы корректно завершаем Avalonia.
         public void Terminate()
         {
-            // Здесь можно добавить логику очистки ресурсов
+            _appLifetime?.Shutdown(0);
         }
 
-        // Регистрация команды "LAYERUI" для вызова из командной строки AutoCAD
         [CommandMethod("LAYERUI")]
         public static void ShowLayerUI()
         {
-            // Если окно уже открыто, просто активируем его
-            if (_mainWindow != null)
+            // Если окно уже существует (даже если скрыто), просто показываем его
+            if (_appLifetime?.MainWindow != null)
             {
-                _mainWindow.Activate();
+                _appLifetime.MainWindow.Show();
+                _appLifetime.MainWindow.Activate();
                 return;
             }
 
-            // Avalonia UI должен работать в отдельном потоке с состоянием STA (Single-Threaded Apartment),
-            // чтобы не блокировать основной поток AutoCAD и корректно обрабатывать события UI.
+            // Предотвращаем запуск нового потока, если старый еще не завершился
+            if (_avaloniaThread != null && _avaloniaThread.IsAlive)
+            {
+                return;
+            }
+
+            // Первый запуск: создаем поток и запускаем приложение Avalonia
             _avaloniaThread = new Thread(() =>
             {
                 try
                 {
-                    var builder = BuildAvaloniaApp().SetupWithoutStarting();
-                    var app = builder.Instance;
-
-                    AppMain(app, null);
+                    BuildAvaloniaApp().StartWithClassicDesktopLifetime(null);
                 }
                 catch (System.Exception ex)
                 {
-                    Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Editor
-                         .WriteMessage($"\nОшибка запуска Avalonia: {ex.Message}");
+                   Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument?.Editor
+                        .WriteMessage($"\nОшибка запуска Avalonia: {ex.Message}");
                 }
             });
             _avaloniaThread.SetApartmentState(ApartmentState.STA);
             _avaloniaThread.Start();
         }
 
-        // Основной метод для запуска приложения Avalonia
-        private static void AppMain(Application app, string[] args)
-        {
-            // Создаем зависимости: сервис для работы с AutoCAD и ViewModel
-            var service = new AutoCADService();
-            var viewModel = new MainViewModel(service);
-
-            _mainWindow = new MainView
-            {
-                DataContext = viewModel
-            };
-
-            // Запускаем цикл обработки сообщений для окна Avalonia
-            app.Run(_mainWindow);
-
-            // Когда окно закрывается, поток завершается.
-            // Ссылка _mainWindow будет сброшена в null в событии OnClosed окна.
-        }
-
-        // Конфигурация и сборка приложения Avalonia
         private static AppBuilder BuildAvaloniaApp()
             => AppBuilder.Configure<App>()
                 .UsePlatformDetect()
-                .LogToTrace(); // Убран вызов .WithInterFont()
+                .LogToTrace();
 
-        // Статический метод, который вызывается из окна при его закрытии,
-        // чтобы сбросить статическую ссылку и позволить GC собрать ресурсы.
-        public static void ResetWindow()
+        // Статический метод для сохранения ссылки на жизненный цикл из класса App
+        public static void SetLifetime(IClassicDesktopStyleApplicationLifetime lifetime)
         {
-            _mainWindow = null;
+            _appLifetime = lifetime;
         }
     }
-
-    // Минимально необходимый класс App для инициализации Avalonia
-    class App : Avalonia.Application { }
 }
+
