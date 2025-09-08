@@ -11,41 +11,84 @@
         CanResize="True"
         WindowStartupLocation="CenterOwner">
 
-    <Design.DataContext>
-        <vm:MainViewModel/>
-    </Design.DataContext>
+  <!-- DataContext для предпросмотра в дизайнере -->
+  <Design.DataContext>
+    <vm:MainViewModel/>
+  </Design.DataContext>
 
-    <Grid RowDefinitions="Auto, *, Auto" Margin="10">
+  <Grid RowDefinitions="Auto, *, Auto" Margin="10">
+    <!-- Верхняя панель -->
+    <DockPanel Grid.Row="0" Margin="0,0,0,10">
+      <Button Content="Создать" Command="{Binding CreateLayerCommand}" DockPanel.Dock="Right" VerticalAlignment="Center" Padding="20, 5"/>
+      <TextBox Text="{Binding NewLayerName}" Watermark="Имя нового слоя" VerticalAlignment="Center"/>
+    </DockPanel>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,10">
-            <Button Content="Создать" Command="{Binding CreateLayerCommand}" DockPanel.Dock="Right" VerticalAlignment="Center" Padding="20, 5"/>
-            <TextBox Text="{Binding NewLayerName}" Watermark="Имя нового слоя" VerticalAlignment="Center"/>
-        </DockPanel>
+    <!-- Список слоев -->
+    <ListBox Grid.Row="1" ItemsSource="{Binding Layers}" SelectedItem="{Binding SelectedLayer}">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Grid ColumnDefinitions="*, Auto, Auto" Margin="5" VerticalAlignment="Center">
+            <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" FontWeight="Bold"/>
 
-        <ListBox Grid.Row="1" ItemsSource="{Binding Layers}" SelectedItem="{Binding SelectedLayer}">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Grid ColumnDefinitions="*, Auto, Auto" Margin="5" MinWidth="300">
-                        <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" FontWeight="Bold"/>
-                        
-                        <CheckBox Grid.Column="1" IsChecked="{Binding IsOff}" ToolTip.Tip="Включить/Выключить" Margin="10,0"/>
+            <CheckBox Grid.Column="1" IsChecked="{Binding IsOff}" ToolTip.Tip="Включить/Выключить" Margin="10,0" VerticalAlignment="Center"/>
 
-                        <Border Grid.Column="2" Width="20" Height="20" BorderThickness="1" BorderBrush="Gray" CornerRadius="10">
+            <!-- ОБНОВЛЕННЫЙ БЛОК: Кнопка с выпадающим меню для выбора цвета -->
+            <Button Grid.Column="2"
+                    Width="24" Height="24"
+                    Padding="0"
+                    BorderThickness="1"
+                    BorderBrush="Gray"
+                    ToolTip.Tip="Изменить цвет слоя"
+                    VerticalAlignment="Center">
+
+              <!-- Содержимое кнопки - это цветной квадрат -->
+              <Border CornerRadius="2">
+                <Border.Background>
+                  <SolidColorBrush Color="{Binding Color}"/>
+                </Border.Background>
+              </Border>
+
+              <!-- Выпадающее меню, которое появляется по клику -->
+              <Button.Flyout>
+                <Flyout>
+                  <ItemsControl ItemsSource="{Binding PredefinedColors}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <!-- Располагаем цвета в виде сетки -->
+                        <WrapPanel Orientation="Horizontal" MaxWidth="120"/>
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LayerViewModel">
+                        <!-- Каждый элемент - это кнопка, которая устанавливает цвет -->
+                        <Button Width="24" Height="24" Margin="2" Padding="0"
+                                Command="{Binding SetColorCommand}"
+                                CommandParameter="{Binding}">
+                          <Border>
                             <Border.Background>
-                                <SolidColorBrush Color="{Binding Color}"/>
+                              <SolidColorBrush Color="{Binding}"/>
                             </Border.Background>
-                            </Border>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+                          </Border>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="Удалить выбранный" 
-                    Command="{Binding DeleteLayerCommand}" 
-                    Padding="15,5"
-                    IsEnabled="{Binding $self.Command.CanExecute}"/>
-        </StackPanel>
-        
-    </Grid>
+    <!-- Нижняя панель -->
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+      <Button Content="Удалить выбранный"
+              Command="{Binding DeleteLayerCommand}"
+              Padding="15,5"
+              IsEnabled="{Binding $self.Command.CanExecute}"/>
+    </StackPanel>
+  </Grid>
 </Window>
+
+

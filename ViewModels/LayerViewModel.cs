@@ -1,16 +1,16 @@
-﻿using AutoCADLayerManager.Models;
-using AutoCADLayerManager.Services;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Avalonia.Media;
-using CommunityToolkit.Mvvm.ComponentModel;
-using System.Xml.Linq;
-using AcColor = Autodesk.AutoCAD.Colors.Color;
+using AutoCADLayerManager.Services;
+using AutoCADLayerManager.Models;
+using System.Collections.Generic;
 
 namespace AutoCADLayerManager.ViewModels
 {
     public partial class LayerViewModel : ObservableObject
     {
         private readonly AutoCADService _service;
-
+        
         [ObservableProperty]
         private string _name;
 
@@ -40,6 +40,13 @@ namespace AutoCADLayerManager.ViewModels
             }
         }
 
+        // НОВЫЙ СПИСОК: Набор готовых цветов для выпадающего меню
+        public List<Color> PredefinedColors { get; } = new List<Color>
+        {
+            Colors.Red, Colors.Lime, Colors.Blue, Colors.Yellow, Colors.Cyan, Colors.Magenta,
+            Colors.White, Colors.DarkGray, Colors.Orange, Colors.Purple, Colors.Brown, Colors.CornflowerBlue
+        };
+        
         public LayerViewModel(LayerData layerData, AutoCADService service)
         {
             _name = layerData.Name;
@@ -52,9 +59,18 @@ namespace AutoCADLayerManager.ViewModels
         public void Update(LayerData data)
         {
             SetProperty(ref _isOff, data.IsOff, nameof(IsOff));
-
             var newColor = Converters.ColorConverter.ToAvaloniaColor(data.Color);
             SetProperty(ref _color, newColor, nameof(Color));
         }
+
+        // ИЗМЕНЕНА ЛОГИКА: Старая команда OpenColorPicker заменена на эту
+        [RelayCommand]
+        private void SetColor(Color newColor)
+        {
+            // Просто устанавливаем новый цвет. 
+            // Свойство Color само вызовет обновление в AutoCAD.
+            this.Color = newColor;
+        }
     }
 }
+
